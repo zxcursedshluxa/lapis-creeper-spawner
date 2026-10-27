@@ -60,7 +60,7 @@ public class BlockRenderManagerMixin {
 
         Vec3d cameraPos = camera.getPos();
         BlockPos playerPos = BlockPos.ofFloored(cameraPos);
-        int radius = 32; // Оптимизировали радиус до 32 для стабильного FPS
+        int radius = 32; 
 
         for (BlockPos pos : BlockPos.iterate(
                 playerPos.add(-radius, -12, -radius), 
@@ -71,28 +71,27 @@ public class BlockRenderManagerMixin {
             if (state.isOf(Blocks.TINTED_GLASS)) {
                 matrices.push();
                 
-                // 1. Позиционируем моба точно по центру блока
                 double x = pos.getX() - cameraPos.x;
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 
-                // Смещаем базовую точку к центру блока (0.5) 
-                // и немного приподнимаем (0.18), чтобы компенсировать высоту ног крипера
-                matrices.translate(x + 0.5, y + 0.18, z + 0.5);
+                // Переносим матрицу в геометрический центр блока
+                matrices.translate(x + 0.5, y + 0.5, z + 0.5);
 
-                // 2. Вращение: увеличили скорость до 35.0f (как у оригинального спавнера)
+                // 1. СКОРОСТЬ: Подняли до 55.0f для идеального соответствия ванильному спавнеру
                 long time = this.client.world.getTime();
-                float rotation = ((time + tickDelta) * 35.0f) % 360.0f;
+                float rotation = ((time + tickDelta) * 55.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 3. Масштабирование: уменьшаем модельку под размеры спавнера
-                matrices.scale(0.4375f, 0.4375f, 0.4375f);
+                // 2. РАЗМЕР: Уменьшили масштаб до 0.33f, чтобы он сидел аккуратно и не казался огромным
+                matrices.scale(0.33f, 0.33f, 0.33f);
 
-                // 4. Освещение: берем свет от блока НАД тонированным стеклом (pos.up()),
-                // чтобы крипер не был черным из-за свойств поглощения света стеклом
+                // 3. ОСЬ ВРАЩЕНИЯ: Компенсируем Pivot Point крипера.
+                // Смещаем модель вниз наполовину высоты тела (чтобы центр вращения был в животе, а не в ногах)
+                matrices.translate(0.0, -0.75, 0.0);
+
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
 
-                // Рендерим моба
                 renderer.render(this.creeperState, matrices, immediateConsumers, light);
 
                 matrices.pop();
