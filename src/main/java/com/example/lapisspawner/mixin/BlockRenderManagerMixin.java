@@ -75,23 +75,22 @@ public class BlockRenderManagerMixin {
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 
-                // 1. Смещаем матрицу в центр блока спавнера
-                matrices.translate(x + 0.5, y + 0.45, z + 0.5);
+                // 1. Позиционируем в центре блока спавнера (чуть выше по Y, чтобы выровнять с оригиналом)
+                matrices.translate(x + 0.5, y + 0.53, z + 0.5);
 
-                // 2. ДИНАМИКА СПАВНЕРА: Сначала наклоняем моба вперед по оси X.
-                // В ванильном Minecraft спавнер наклоняет модельку примерно на 15-20 градусов.
-                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(17.0f));
+                // 2. ВАНИЛЬНЫЙ НАКЛОН: Наклоняем всю готовую систему вращения на 15 градусов
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(15.0f));
 
-                // 3. ВРАЩЕНИЕ: Теперь крутим наклонённую модель вокруг оси Y
+                // 3. ВРАЩЕНИЕ: Крутим моба строго вокруг его собственной оси Y
                 long time = this.client.world.getTime();
                 float rotation = ((time + tickDelta) * 55.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 4. МАСШТАБ: Оставляем аккуратный размер
+                // 4. МАСШТАБ: Аккуратный размер моба под спавнер
                 matrices.scale(0.33f, 0.33f, 0.33f);
 
-                // 5. КОРРЕКЦИЯ ЦЕНТРА: Опускаем модельку так, чтобы центр вращения пришелся на тело
-                matrices.translate(0.0, -0.85, 0.0);
+                // 5. СМЕЩЕНИЕ ЦЕНТРА: Корректируем геометрию модели крипера относительно точки вращения
+                matrices.translate(0.0, -0.75, 0.0);
 
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
 
