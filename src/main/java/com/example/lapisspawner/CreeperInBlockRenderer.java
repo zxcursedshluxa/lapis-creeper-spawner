@@ -1,30 +1,33 @@
 package com.example.lapisspawner;
 
+import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.MobSpawnerBlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
+import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnReason;
-import net.minecraft.entity.mob.CreeperEntity;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.math.BlockPos;
 
 public final class CreeperInBlockRenderer {
-    private static CreeperEntity creeper;
+    private static MobSpawnerBlockEntity fakeSpawner;
 
     public static void render(MatrixStack matrices, VertexConsumer vc,
                               float tickDelta, int light) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world == null) return;
 
-        if (creeper == null) {
-            creeper = EntityType.CREEPER.create(mc.world, SpawnReason.MOB_SUMMONED);
-            if (creeper == null) return;
+        if (fakeSpawner == null) {
+            fakeSpawner = new MobSpawnerBlockEntity(BlockPos.ORIGIN, Blocks.SPAWNER.getDefaultState());
+            fakeSpawner.setWorld(mc.world);
+            
+            // Принудительно ставим крипера
+            fakeSpawner.getLogic().setEntityId(EntityType.CREEPER, mc.world, mc.world.getRandom(), BlockPos.ORIGIN);
         }
 
-        // Создаем провайдер, который перенаправляет отрисовку в наш VertexConsumer
+        // Провайдер для отрисовки
         VertexConsumerProvider provider = new VertexConsumerProvider() {
             @Override
             public VertexConsumer getBuffer(RenderLayer layer) {
@@ -34,13 +37,14 @@ public final class CreeperInBlockRenderer {
 
         matrices.push();
         matrices.translate(0.5, 0.0, 0.5);
-        float angle = (mc.world.getTime() + tickDelta) * 10.0f;
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(angle));
-        matrices.scale(0.5f, 0.5f, 0.5f);
+        
+        BlockEntityRenderDispatcher dispatcher = mc.getBlockEntityRenderDispatcher();
+        var renderer = dispatcher.get(fakeSpawner);
 
-        EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
-        // Теперь передаем наш провайдер
-        dispatcher.render(creeper, 0, 0, 0, 0f, matrices, provider, light);
+        if (renderer != null) {
+            // Рендерер спавнера сам закрутит крипера
+            renderer.render(fakeSpawner, tickDelta, matrices, provider, light, 0);
+        }
 
         matrices.pop();
     }
