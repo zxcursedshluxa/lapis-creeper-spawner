@@ -75,21 +75,23 @@ public class BlockRenderManagerMixin {
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 
-                // 1. Позиционируем в центре блока спавнера (чуть выше по Y, чтобы выровнять с оригиналом)
-                matrices.translate(x + 0.5, y + 0.53, z + 0.5);
+                // 1. Позиционируем в центре блока
+                matrices.translate(x + 0.5, y + 0.4, z + 0.5);
 
-                // 2. ВАНИЛЬНЫЙ НАКЛОН: Наклоняем всю готовую систему вращения на 15 градусов
-                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(15.0f));
-
-                // 3. ВРАЩЕНИЕ: Крутим моба строго вокруг его собственной оси Y
+                // 2. ВРАЩЕНИЕ: Сначала крутим моба вокруг вертикальной оси Y.
+                // Так ось вращения останется строго вертикальной, и он будет стоять на лапах.
                 long time = this.client.world.getTime();
-                float rotation = ((time + tickDelta) * 55.0f) % 360.0f;
+                float rotation = ((time + tickDelta) * 45.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 4. МАСШТАБ: Аккуратный размер моба под спавнер
+                // 3. НАКЛОН: Наклоняем саму модельку на 20 градусов, чтобы создать покачивание при вращении.
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(20.0f));
+
+                // 4. МАСШТАБ: Оптимальный размер
                 matrices.scale(0.33f, 0.33f, 0.33f);
 
-                // 5. СМЕЩЕНИЕ ЦЕНТРА: Корректируем геометрию модели крипера относительно точки вращения
+                // 5. КОРРЕКЦИЯ ЦЕНТРА: Опускаем модельку, смещая её точку привязки (ноги) вниз,
+                // чтобы центр вращения пришелся ровно на туловище крипера.
                 matrices.translate(0.0, -0.75, 0.0);
 
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
