@@ -4,7 +4,7 @@ import com.example.lapisspawner.CreeperInBlockRenderer;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.block.BlockRenderManager;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
@@ -20,9 +20,9 @@ public class BlockRenderManagerMixin {
 
     @Inject(method = "renderBlock", at = @At("TAIL"))
     private void lapisSpawner$render(BlockState state, BlockPos pos, BlockRenderView world,
-                                     MatrixStack matrices, VertexConsumerProvider vc,
+                                     MatrixStack matrices, VertexConsumer vc,
                                      boolean cull, Random random, CallbackInfo ci) {
-        if (!state.isOf(Blocks.LAPIS_BLOCK)) return;
+        if (!state.isOf(Blocks.TINTED_GLASS)) return;
 
         float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false);
 
