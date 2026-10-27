@@ -31,7 +31,7 @@ public final class CreeperInBlockRenderer {
         EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
         
         // Самый надежный вызов рендера сущности в 1.21.4
-        dispatcher.render(creeper, 0, 0, 0, 0f, tickDelta, matrices, vc, light);
+        dispatcher.render(creeper, 0, 0, 0, 0f, matrices, vc, light);
 
         matrices.pop();
     }
