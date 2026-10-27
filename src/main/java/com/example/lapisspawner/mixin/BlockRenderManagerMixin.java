@@ -75,31 +75,31 @@ public class BlockRenderManagerMixin {
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 
-                // 1. Позиционируем точно в центре спавнера
-                matrices.translate(x + 0.5, y + 0.42, z + 0.5);
+                // 1. Позиционируем в центре блока спавнера
+                matrices.translate(x + 0.5, y + 0.45, z + 0.5);
 
-                // 2. ВРАЩЕНИЕ (Ось Y): Задает основное кручение моба
+                // 2. ВРАЩЕНИЕ (Ось Y): Скорость увеличена до 65.0f (он будет крутиться быстрее)
                 long time = this.client.world.getTime();
-                float rotation = ((time + tickDelta) * 45.0f) % 360.0f;
+                float rotation = ((time + tickDelta) * 65.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 3. ВАНИЛЬНОЕ ПОКАЧИВАНИЕ (Ось X): Наклоняет моба вперед.
-                // Так как наклон идет ПОСЛЕ вращения по Y, моделька будет совершать 
-                // те самые правильные круговые покачивания корпусом, как в оригинале!
-                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(13.0f));
+                // 3. НАКЛОН (Ось X): Наклоняем модельку на 15 градусов вперед
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(15.0f));
 
-                // 4. МАСШТАБ: Компактный ванильный размер (0.25f), чтобы крипер не вылезал наружу
-                matrices.scale(0.25f, 0.25f, 0.25f);
+                // 4. МАСШТАБ: Увеличен до 0.45f (теперь он крупный и заполняет спавнер)
+                matrices.scale(0.45f, 0.45f, 0.45f);
 
-                // 5. ЦЕНТРИРОВАНИЕ ТЕЛА: Смещаем модельку вниз, чтобы ось вращения проходила через живот
-                matrices.translate(0.0, -0.65, 0.0);
-
+                // 5. СМЕЩЕНИЕ ОСИ (Секрет ванильного спавнера): 
+                // Смещаем модельку назад по оси Z (-0.2), чтобы голова описывала круг у стен решетки,
+                // и опускаем вниз (-0.75), чтобы центр вращения пришелся на туловище.
+                matrices.translate(0.0, -0.75, -0.2);
 
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
 
                 renderer.render(this.creeperState, matrices, immediateConsumers, light);
 
                 matrices.pop();
+
             }
         }
     }
