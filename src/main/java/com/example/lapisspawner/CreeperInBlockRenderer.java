@@ -1,7 +1,9 @@
 package com.example.lapisspawner;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityType;
@@ -22,6 +24,14 @@ public final class CreeperInBlockRenderer {
             if (creeper == null) return;
         }
 
+        // Создаем провайдер, который перенаправляет отрисовку в наш VertexConsumer
+        VertexConsumerProvider provider = new VertexConsumerProvider() {
+            @Override
+            public VertexConsumer getBuffer(RenderLayer layer) {
+                return vc;
+            }
+        };
+
         matrices.push();
         matrices.translate(0.5, 0.0, 0.5);
         float angle = (mc.world.getTime() + tickDelta) * 10.0f;
@@ -29,7 +39,8 @@ public final class CreeperInBlockRenderer {
         matrices.scale(0.5f, 0.5f, 0.5f);
 
         EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
-        dispatcher.render(creeper, 0, 0, 0, 0f, matrices, vc, light);
+        // Теперь передаем наш провайдер
+        dispatcher.render(creeper, 0, 0, 0, 0f, matrices, provider, light);
 
         matrices.pop();
     }
