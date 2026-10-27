@@ -44,60 +44,79 @@ public class BlockRenderManagerMixin {
         List<?> entities,
         CallbackInfo ci
     ) {
-        if (this.client.world == null) return;
+        // Жесткая проверка: если мир, клиент или рендерер не готовы, не делаем ничего
+        if (this.client.world == null || this.entityRenderDispatcher == null || immediateConsumers == null) return;
 
-        if (this.clientCreeper == null) {
-            this.clientCreeper = new CreeperEntity(EntityType.CREEPER, this.client.world);
+        try {
+            // Безопасная инициализация на главном потоке
+            if (this.clientCreeper == null) {
+                this.clientCreeper = new CreeperEntity(EntityType.CREEPER, this.client.world);
+                EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
+                    (EntityRenderer<CreeperEntity, CreeperEntityRenderState>) this.entityRenderDispatcher.getRenderer(this.clientCreeper);
+                if (renderer != null) {
+                    this.creeperState = renderer.createRenderState();
+                }
+            }
+
+            if (this.clientCreeper == null || this.creeperState == null) return;
+
+            float tickDelta = tickCounter.getTickDelta(true);
             EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
                 (EntityRenderer<CreeperEntity, CreeperEntityRenderState>) this.entityRenderDispatcher.getRenderer(this.clientCreeper);
-            this.creeperState = renderer.createRenderState();
-        }
-
-        float tickDelta = tickCounter.getTickDelta(true);
-        EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
-            (EntityRenderer<CreeperEntity, CreeperEntityRenderState>) this.entityRenderDispatcher.getRenderer(this.clientCreeper);
-        renderer.updateRenderState(this.clientCreeper, this.creeperState, tickDelta);
-
-        Vec3d cameraPos = camera.getPos();
-        BlockPos playerPos = BlockPos.ofFloored(cameraPos);
-        int radius = 32; 
-
-        for (BlockPos pos : BlockPos.iterate(
-                playerPos.add(-radius, -12, -radius), 
-                playerPos.add(radius, 12, radius)
-        )) {
-            BlockState state = this.client.world.getBlockState(pos);
             
-            if (state.isOf(Blocks.TINTED_GLASS)) {
-                matrices.push();
+            if (renderer == null) return;
+            renderer.updateRenderState(this.clientCreeper, this.creeperState, tickDelta);
+
+            Vec3d cameraPos = camera.getPos();
+            BlockPos playerPos = BlockPos.ofFloored(cameraPos);
+            int radius = 32; 
+
+            for (BlockPos pos : BlockPos.iterate(
+                    playerPos.add(-radius, -12, -radius), 
+                    playerPos.add(radius, 12, radius)
+            )) {
+                // Проверяем, что мы находимся в границах высоты мира, чтобы избежать выхода за лимиты
+                if (pos.getY() >= this.client.world.getTopY() - 1 || pos.getY() < this.client.world.getBottomY()) continue;
+
+                BlockState state = this.client.world.getBlockState(pos);
                 
-                double x = pos.getX() - cameraPos.x;
-                double y = pos.getY() - cameraPos.y;
-                double z = pos.getZ() - cameraPos.z;
-                
-                // 1. Позиционируем точно в центре блока спавнера
-                matrices.translate(x + 0.5, y + 0.43, z + 0.5);
+                if (state.isOf(Blocks.TINTED_GLASS)) {
+                    matrices.push();
+                    
+                    double x = pos.getX() - cameraPos.x;
+                    double y = pos.getY() - cameraPos.y;
+                    double z = pos.getZ() - cameraPos.z;
+                    
+                    // 1. Позиционируем точно в центре блока спавнера
+                    matrices.translate(x + 0.5, y + 0.45, z + 0.5);
 
-                // 2. ВРАЩЕНИЕ (Ось Y): Скорость вращения вокруг центра спавнера
-                long time = this.client.world.getTime();
-                float rotation = ((time + tickDelta) * 50.0f) % 360.0f;
-                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
+                    // 2. ВРАЩЕНИЕ (Ось Y): Скорость вращения вокруг центра спавнера
+                    long time = this.client.world.getTime();
+                    float rotation = ((time + tickDelta) * 50.0f) % 360.0f;
+                    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 3. СМЕНА ОСИ (РАЗВОРТ К СТЕНАМ): Разворачиваем крипера спиной к центру.
-                // Благодаря этому наклон "вперед" сработает как наклон "наружу" (головой к прутьям)!
-                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0f));
+                    // 3. НАКЛОН (Ось X): Наклоняем модельку вперед на 15 градусов.
+                    // Теперь наклон автоматически уводит голову наружу к стенкам решетки
+                    matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(15.0f));
 
-                // 4. НАКЛОН (Ось X): Наклоняем модельку вперед (теперь она отклоняется к стенам)
-                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(14.0f));
+                    // 4. МАСШТАБ: Сделали его меньше (0.28f), чтобы он сидел супер аккуратно
+                    matrices.scale(0.28f, 0.28f, 0.28f);
 
-                // 5. ВАНИЛЬНОЕ СМЕЩЕНИЕ: Сдвигаем модельку, чтобы конус вращения был широким вверху
-                matrices.translate(0.0, -0.4, 0.0);
+                    // 5. КОРРЕКЦИЯ ЦЕНТРА: Опускаем модельку так, чтобы центр вращения пришелся на туловище
+                    matrices.translate(0.0, -0.75, 0.0);
 
-                // 6. МАСШТАБ: Сделали аккуратный ванильный размер (0.31f) — чуть меньше предыдущего
-                matrices.scale(0.31f, 0.31f, 0.31f);
+                    int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
 
+                    // Безопасный вызов отрисовки
+                    renderer.render(this.creeperState, matrices, immediateConsumers, light);
 
+                    matrices.pop();
+                }
             }
+        } catch (Exception e) {
+            // Если в процессе рендеринга произойдет любая ошибка, игра НЕ крашнется,
+            // а просто пропустит один кадр отрисовки крипера
+            System.err.println("[LapisSpawner] Ошибка отрисовки кадра: " + e.getMessage());
         }
     }
 }
