@@ -1,4 +1,4 @@
-package com.example.mixin;
+package com.example.lapisspawner.mixin;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(WorldRenderer.class)
-public class WorldRendererMixin {
+public class BlockRenderManagerMixin { // Имя класса теперь совпадает с именем вашего файла
 
     @Shadow @Final private MinecraftClient client;
     @Shadow @Final private EntityRenderDispatcher entityRenderDispatcher;
@@ -31,6 +31,7 @@ public class WorldRendererMixin {
     @Unique private CreeperEntity clientCreeper;
     @Unique private CreeperEntityRenderState creeperState;
 
+    @SuppressWarnings("unchecked")
     @Inject(
         method = "render", 
         at = @At(
@@ -50,30 +51,24 @@ public class WorldRendererMixin {
     ) {
         if (this.client.world == null) return;
 
-        // Инициализируем сущность и её состояние один раз на главном потоке
         if (this.clientCreeper == null) {
             this.clientCreeper = new CreeperEntity(EntityType.CREEPER, this.client.world);
-            
-            // В 1.21.4 получаем правильный объект состояния через рендерер диспетчера
             EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
                 (EntityRenderer<CreeperEntity, CreeperEntityRenderState>) this.entityRenderDispatcher.getRenderer(this.clientCreeper);
             this.creeperState = renderer.createRenderState();
         }
 
-        // Обновляем состояние крипера (анимации, текстуры) для текущего кадра
         float tickDelta = tickCounter.getTickDelta(true);
         EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
             (EntityRenderer<CreeperEntity, CreeperEntityRenderState>) this.entityRenderDispatcher.getRenderer(this.clientCreeper);
         renderer.updateRenderState(this.clientCreeper, this.creeperState, tickDelta);
 
-        // Получаем позицию камеры, чтобы правильно рассчитать относительные координаты блоков
         Vec3d cameraPos = camera.getPos();
         VertexConsumerProvider.Immediate consumers = this.client.getBufferBuilders().getEntityVertexConsumers();
         MatrixStack matrices = new MatrixStack();
 
-        // Ищем блоки вокруг игрока в радиусе прорисовки (находимся строго в главном потоке отрисовки)
         BlockPos playerPos = BlockPos.ofFloored(cameraPos);
-        int radius = 64; // Радиус отображения криперов в стекле
+        int radius = 64; 
 
         for (BlockPos pos : BlockPos.iterate(
                 playerPos.add(-radius, -16, -radius), 
@@ -84,24 +79,19 @@ public class WorldRendererMixin {
             if (state.isOf(Blocks.TINTED_GLASS)) {
                 matrices.push();
                 
-                // Вычисляем координаты блока относительно камеры
                 double x = pos.getX() - cameraPos.x;
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 matrices.translate(x + 0.5, y + 0.25, z + 0.5);
 
-                // Анимация вращения моба как в спавнере
                 long time = this.client.world.getTime();
                 float rotation = ((time + tickDelta) * 10.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // Масштаб моба внутри спавнера
                 matrices.scale(0.4375f, 0.4375f, 0.4375f);
 
-                // Получаем правильное освещение блока
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos);
 
-                // Отрисовываем крипера через официальный метод 1.21.4
                 renderer.render(this.creeperState, matrices, consumers, light);
 
                 matrices.pop();
