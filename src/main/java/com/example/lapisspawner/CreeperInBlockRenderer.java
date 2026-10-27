@@ -23,7 +23,8 @@ public final class CreeperInBlockRenderer {
             fakeSpawner = new MobSpawnerBlockEntity(BlockPos.ORIGIN, Blocks.SPAWNER.getDefaultState());
             fakeSpawner.setWorld(mc.world);
             
-            // В 1.21.4 это должно заставить спавнер запомнить крипера
+            // Вручную ставим крипера через NBT (старый способ, который работал в 1.20)
+            // В 1.21.4 он может работать, если передать правильные данные.
             fakeSpawner.getLogic().setEntityId(EntityType.CREEPER, mc.world, mc.world.getRandom(), BlockPos.ORIGIN);
         }
 
@@ -37,6 +38,7 @@ public final class CreeperInBlockRenderer {
         matrices.push();
         matrices.translate(0.5, 0.0, 0.5);
         
+        // Вызываем ванильный рендерер
         BlockEntityRenderDispatcher dispatcher = mc.getBlockEntityRenderDispatcher();
         var renderer = dispatcher.get(fakeSpawner);
 
