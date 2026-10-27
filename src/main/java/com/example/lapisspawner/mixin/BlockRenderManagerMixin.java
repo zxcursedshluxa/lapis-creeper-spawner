@@ -20,6 +20,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import java.util.List;
 
 @Mixin(WorldRenderer.class)
 public class BlockRenderManagerMixin {
@@ -33,17 +34,19 @@ public class BlockRenderManagerMixin {
     @SuppressWarnings("unchecked")
     @Inject(
         method = "renderEntities", 
-        at = @At("TAIL") // Внедряемся в самый конец метода отрисовки сущностей
+        at = @At("TAIL")
     )
     private void onRenderEntities(
-        MatrixStack matrices, 
-        Camera camera, 
-        RenderTickCounter tickCounter, 
+        MatrixStack matrices,
+        VertexConsumerProvider.Immediate immediateConsumers, // Используем провайдер прямо из аргументов игры!
+        Camera camera,
+        RenderTickCounter tickCounter,
+        List<?> entities, // Сюда игра складывает список отрисованных сущностей
         CallbackInfo ci
     ) {
         if (this.client.world == null) return;
 
-        // Инициализируем сущность крипера и её стейт
+        // Инициализируем фейкового крипера и его состояние рендера
         if (this.clientCreeper == null) {
             this.clientCreeper = new CreeperEntity(EntityType.CREEPER, this.client.world);
             EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
@@ -51,18 +54,16 @@ public class BlockRenderManagerMixin {
             this.creeperState = renderer.createRenderState();
         }
 
-        // Обновляем состояние анимаций крипера
+        // Обновляем состояние анимаций крипера на текущий кадр
         float tickDelta = tickCounter.getTickDelta(true);
         EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
             (EntityRenderer<CreeperEntity, CreeperEntityRenderState>) this.entityRenderDispatcher.getRenderer(this.clientCreeper);
         renderer.updateRenderState(this.clientCreeper, this.creeperState, tickDelta);
 
-        // Получаем позицию камеры и буферы отрисовки
+        // Позиция камеры для расчёта смещения блоков
         Vec3d cameraPos = camera.getPos();
-        VertexConsumerProvider.Immediate consumers = this.client.getBufferBuilders().getEntityVertexConsumers();
-
         BlockPos playerPos = BlockPos.ofFloored(cameraPos);
-        int radius = 48; // Радиус поиска стекол вокруг игрока
+        int radius = 48; // Оптимальный радиус поиска блоков стекла
 
         for (BlockPos pos : BlockPos.iterate(
                 playerPos.add(-radius, -12, -radius), 
@@ -73,25 +74,25 @@ public class BlockRenderManagerMixin {
             if (state.isOf(Blocks.TINTED_GLASS)) {
                 matrices.push();
                 
-                // Рассчитываем координаты блока относительно камеры
+                // Вычисляем относительные координаты блока
                 double x = pos.getX() - cameraPos.x;
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 matrices.translate(x + 0.5, y + 0.25, z + 0.5);
 
-                // Вращение крипера (анимация спавнера)
+                // Вращение крипера (скорость анимации спавнера)
                 long time = this.client.world.getTime();
                 float rotation = ((time + tickDelta) * 10.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // Масштабирование моба, чтобы он помещался в блок
+                // Уменьшаем крипера, чтобы он сидел внутри куба
                 matrices.scale(0.4375f, 0.4375f, 0.4375f);
 
-                // Получаем освещение в точке нахождения блока
+                // Рассчитываем реальное освещение блока
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos);
 
-                // Отрисовываем крипера
-                renderer.render(this.creeperState, matrices, consumers, light);
+                // Отрисовываем крипера через официальный провайдер буферов игры
+                renderer.render(this.creeperState, matrices, immediateConsumers, light);
 
                 matrices.pop();
             }
