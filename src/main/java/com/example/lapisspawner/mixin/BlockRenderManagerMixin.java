@@ -38,15 +38,14 @@ public class BlockRenderManagerMixin {
     )
     private void onRenderEntities(
         MatrixStack matrices,
-        VertexConsumerProvider.Immediate immediateConsumers, // Используем провайдер прямо из аргументов игры!
+        VertexConsumerProvider.Immediate immediateConsumers,
         Camera camera,
         RenderTickCounter tickCounter,
-        List<?> entities, // Сюда игра складывает список отрисованных сущностей
+        List<?> entities,
         CallbackInfo ci
     ) {
         if (this.client.world == null) return;
 
-        // Инициализируем фейкового крипера и его состояние рендера
         if (this.clientCreeper == null) {
             this.clientCreeper = new CreeperEntity(EntityType.CREEPER, this.client.world);
             EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
@@ -54,16 +53,14 @@ public class BlockRenderManagerMixin {
             this.creeperState = renderer.createRenderState();
         }
 
-        // Обновляем состояние анимаций крипера на текущий кадр
         float tickDelta = tickCounter.getTickDelta(true);
         EntityRenderer<CreeperEntity, CreeperEntityRenderState> renderer = 
             (EntityRenderer<CreeperEntity, CreeperEntityRenderState>) this.entityRenderDispatcher.getRenderer(this.clientCreeper);
         renderer.updateRenderState(this.clientCreeper, this.creeperState, tickDelta);
 
-        // Позиция камеры для расчёта смещения блоков
         Vec3d cameraPos = camera.getPos();
         BlockPos playerPos = BlockPos.ofFloored(cameraPos);
-        int radius = 48; // Оптимальный радиус поиска блоков стекла
+        int radius = 32; // Оптимизировали радиус до 32 для стабильного FPS
 
         for (BlockPos pos : BlockPos.iterate(
                 playerPos.add(-radius, -12, -radius), 
@@ -74,24 +71,28 @@ public class BlockRenderManagerMixin {
             if (state.isOf(Blocks.TINTED_GLASS)) {
                 matrices.push();
                 
-                // Вычисляем относительные координаты блока
+                // 1. Позиционируем моба точно по центру блока
                 double x = pos.getX() - cameraPos.x;
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
-                matrices.translate(x + 0.5, y + 0.25, z + 0.5);
+                
+                // Смещаем базовую точку к центру блока (0.5) 
+                // и немного приподнимаем (0.18), чтобы компенсировать высоту ног крипера
+                matrices.translate(x + 0.5, y + 0.18, z + 0.5);
 
-                // Вращение крипера (скорость анимации спавнера)
+                // 2. Вращение: увеличили скорость до 35.0f (как у оригинального спавнера)
                 long time = this.client.world.getTime();
-                float rotation = ((time + tickDelta) * 10.0f) % 360.0f;
+                float rotation = ((time + tickDelta) * 35.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // Уменьшаем крипера, чтобы он сидел внутри куба
+                // 3. Масштабирование: уменьшаем модельку под размеры спавнера
                 matrices.scale(0.4375f, 0.4375f, 0.4375f);
 
-                // Рассчитываем реальное освещение блока
-                int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos);
+                // 4. Освещение: берем свет от блока НАД тонированным стеклом (pos.up()),
+                // чтобы крипер не был черным из-за свойств поглощения света стеклом
+                int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
 
-                // Отрисовываем крипера через официальный провайдер буферов игры
+                // Рендерим моба
                 renderer.render(this.creeperState, matrices, immediateConsumers, light);
 
                 matrices.pop();
