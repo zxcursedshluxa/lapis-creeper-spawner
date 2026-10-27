@@ -75,24 +75,25 @@ public class BlockRenderManagerMixin {
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 
-                // 1. Позиционируем в центре блока
-                matrices.translate(x + 0.5, y + 0.4, z + 0.5);
+                // 1. Позиционируем точно в центре спавнера
+                matrices.translate(x + 0.5, y + 0.42, z + 0.5);
 
-                // 2. ВРАЩЕНИЕ: Сначала крутим моба вокруг вертикальной оси Y.
-                // Так ось вращения останется строго вертикальной, и он будет стоять на лапах.
+                // 2. ВРАЩЕНИЕ (Ось Y): Задает основное кручение моба
                 long time = this.client.world.getTime();
                 float rotation = ((time + tickDelta) * 45.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 3. НАКЛОН: Наклоняем саму модельку на 20 градусов, чтобы создать покачивание при вращении.
-                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(20.0f));
+                // 3. ВАНИЛЬНОЕ ПОКАЧИВАНИЕ (Ось X): Наклоняет моба вперед.
+                // Так как наклон идет ПОСЛЕ вращения по Y, моделька будет совершать 
+                // те самые правильные круговые покачивания корпусом, как в оригинале!
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(13.0f));
 
-                // 4. МАСШТАБ: Оптимальный размер
-                matrices.scale(0.33f, 0.33f, 0.33f);
+                // 4. МАСШТАБ: Компактный ванильный размер (0.25f), чтобы крипер не вылезал наружу
+                matrices.scale(0.25f, 0.25f, 0.25f);
 
-                // 5. КОРРЕКЦИЯ ЦЕНТРА: Опускаем модельку, смещая её точку привязки (ноги) вниз,
-                // чтобы центр вращения пришелся ровно на туловище крипера.
-                matrices.translate(0.0, -0.75, 0.0);
+                // 5. ЦЕНТРИРОВАНИЕ ТЕЛА: Смещаем модельку вниз, чтобы ось вращения проходила через живот
+                matrices.translate(0.0, -0.65, 0.0);
+
 
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
 
