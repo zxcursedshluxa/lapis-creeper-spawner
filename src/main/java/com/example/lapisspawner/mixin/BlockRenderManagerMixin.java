@@ -75,30 +75,27 @@ public class BlockRenderManagerMixin {
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 
-                // 1. Позиционируем в центре блока спавнера
-                matrices.translate(x + 0.5, y + 0.45, z + 0.5);
+                // 1. Позиционируем точно в центре блока спавнера
+                matrices.translate(x + 0.5, y + 0.43, z + 0.5);
 
-                // 2. ВРАЩЕНИЕ (Ось Y): Скорость увеличена до 65.0f (он будет крутиться быстрее)
+                // 2. ВРАЩЕНИЕ (Ось Y): Скорость вращения вокруг центра спавнера
                 long time = this.client.world.getTime();
-                float rotation = ((time + tickDelta) * 65.0f) % 360.0f;
+                float rotation = ((time + tickDelta) * 50.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 3. НАКЛОН (Ось X): Наклоняем модельку на 15 градусов вперед
-                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(15.0f));
+                // 3. СМЕНА ОСИ (РАЗВОРТ К СТЕНАМ): Разворачиваем крипера спиной к центру.
+                // Благодаря этому наклон "вперед" сработает как наклон "наружу" (головой к прутьям)!
+                matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0f));
 
-                // 4. МАСШТАБ: Увеличен до 0.45f (теперь он крупный и заполняет спавнер)
-                matrices.scale(0.45f, 0.45f, 0.45f);
+                // 4. НАКЛОН (Ось X): Наклоняем модельку вперед (теперь она отклоняется к стенам)
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(14.0f));
 
-                // 5. СМЕЩЕНИЕ ОСИ (Секрет ванильного спавнера): 
-                // Смещаем модельку назад по оси Z (-0.2), чтобы голова описывала круг у стен решетки,
-                // и опускаем вниз (-0.75), чтобы центр вращения пришелся на туловище.
-                matrices.translate(0.0, -0.75, -0.2);
+                // 5. ВАНИЛЬНОЕ СМЕЩЕНИЕ: Сдвигаем модельку, чтобы конус вращения был широким вверху
+                matrices.translate(0.0, -0.4, 0.0);
 
-                int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
+                // 6. МАСШТАБ: Сделали аккуратный ванильный размер (0.31f) — чуть меньше предыдущего
+                matrices.scale(0.31f, 0.31f, 0.31f);
 
-                renderer.render(this.creeperState, matrices, immediateConsumers, light);
-
-                matrices.pop();
 
             }
         }
