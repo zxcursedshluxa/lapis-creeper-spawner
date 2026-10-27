@@ -24,11 +24,11 @@ public class BlockRenderManagerMixin {
                                      boolean cull, Random random, CallbackInfo ci) {
         if (!state.isOf(Blocks.LAPIS_BLOCK)) return;
 
+        float tickDelta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(false);
+
         matrices.push();
         matrices.translate(pos.getX(), pos.getY(), pos.getZ());
-        CreeperInBlockRenderer.render(matrices, vc,
-                MinecraftClient.getInstance().getTickDelta(),
-                0xF000F0);
+        CreeperInBlockRenderer.render(matrices, vc, tickDelta, 0xF000F0);
         matrices.pop();
     }
 }
