@@ -6,8 +6,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EntityType;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
 
 public final class CreeperInBlockRenderer {
@@ -20,13 +18,8 @@ public final class CreeperInBlockRenderer {
 
         if (fakeSpawner == null) {
             fakeSpawner = new MobSpawnerBlockEntity(BlockPos.ORIGIN, Blocks.SPAWNER.getDefaultState());
-            
-            // В 1.21.4 NBT переехал в компоненты, но для спавнера работает старый метод setEntityId
-            fakeSpawner.setEntityId(EntityType.CREEPER, mc.world, mc.world.getRandom(), BlockPos.ORIGIN);
+            fakeSpawner.setWorld(mc.world);
         }
-
-        // Крутим спавнер (его рендерер сам крутит моба)
-        fakeSpawner.setWorld(mc.world);
 
         BlockEntityRenderDispatcher dispatcher = mc.getBlockEntityRenderDispatcher();
         var renderer = dispatcher.get(fakeSpawner);
