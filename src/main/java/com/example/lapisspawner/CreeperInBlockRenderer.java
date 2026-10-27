@@ -1,7 +1,7 @@
 package com.example.lapisspawner;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.EntityType;
@@ -12,7 +12,7 @@ import net.minecraft.util.math.RotationAxis;
 public final class CreeperInBlockRenderer {
     private static CreeperEntity creeper;
 
-    public static void render(MatrixStack matrices, VertexConsumerProvider vc,
+    public static void render(MatrixStack matrices, VertexConsumer vc,
                               float tickDelta, int light) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world == null) return;
@@ -29,8 +29,6 @@ public final class CreeperInBlockRenderer {
         matrices.scale(0.5f, 0.5f, 0.5f);
 
         EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
-        
-        // Самый надежный вызов рендера сущности в 1.21.4
         dispatcher.render(creeper, 0, 0, 0, 0f, matrices, vc, light);
 
         matrices.pop();
