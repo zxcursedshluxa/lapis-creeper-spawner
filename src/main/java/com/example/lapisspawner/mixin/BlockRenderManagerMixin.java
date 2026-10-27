@@ -75,20 +75,23 @@ public class BlockRenderManagerMixin {
                 double y = pos.getY() - cameraPos.y;
                 double z = pos.getZ() - cameraPos.z;
                 
-                // Переносим матрицу в геометрический центр блока
-                matrices.translate(x + 0.5, y + 0.5, z + 0.5);
+                // 1. Смещаем матрицу в центр блока спавнера
+                matrices.translate(x + 0.5, y + 0.45, z + 0.5);
 
-                // 1. СКОРОСТЬ: Подняли до 55.0f для идеального соответствия ванильному спавнеру
+                // 2. ДИНАМИКА СПАВНЕРА: Сначала наклоняем моба вперед по оси X.
+                // В ванильном Minecraft спавнер наклоняет модельку примерно на 15-20 градусов.
+                matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(17.0f));
+
+                // 3. ВРАЩЕНИЕ: Теперь крутим наклонённую модель вокруг оси Y
                 long time = this.client.world.getTime();
                 float rotation = ((time + tickDelta) * 55.0f) % 360.0f;
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(rotation));
 
-                // 2. РАЗМЕР: Уменьшили масштаб до 0.33f, чтобы он сидел аккуратно и не казался огромным
+                // 4. МАСШТАБ: Оставляем аккуратный размер
                 matrices.scale(0.33f, 0.33f, 0.33f);
 
-                // 3. ОСЬ ВРАЩЕНИЯ: Компенсируем Pivot Point крипера.
-                // Смещаем модель вниз наполовину высоты тела (чтобы центр вращения был в животе, а не в ногах)
-                matrices.translate(0.0, -0.75, 0.0);
+                // 5. КОРРЕКЦИЯ ЦЕНТРА: Опускаем модельку так, чтобы центр вращения пришелся на тело
+                matrices.translate(0.0, -0.85, 0.0);
 
                 int light = WorldRenderer.getLightmapCoordinates(this.client.world, pos.up());
 
