@@ -23,11 +23,10 @@ public final class CreeperInBlockRenderer {
             fakeSpawner = new MobSpawnerBlockEntity(BlockPos.ORIGIN, Blocks.SPAWNER.getDefaultState());
             fakeSpawner.setWorld(mc.world);
             
-            // Принудительно ставим крипера
+            // В 1.21.4 это должно заставить спавнер запомнить крипера
             fakeSpawner.getLogic().setEntityId(EntityType.CREEPER, mc.world, mc.world.getRandom(), BlockPos.ORIGIN);
         }
 
-        // Провайдер для отрисовки
         VertexConsumerProvider provider = new VertexConsumerProvider() {
             @Override
             public VertexConsumer getBuffer(RenderLayer layer) {
@@ -42,7 +41,6 @@ public final class CreeperInBlockRenderer {
         var renderer = dispatcher.get(fakeSpawner);
 
         if (renderer != null) {
-            // Рендерер спавнера сам закрутит крипера
             renderer.render(fakeSpawner, tickDelta, matrices, provider, light, 0);
         }
 
