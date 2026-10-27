@@ -22,11 +22,10 @@ public final class CreeperInBlockRenderer {
             fakeSpawner = new MobSpawnerBlockEntity(BlockPos.ORIGIN, Blocks.SPAWNER.getDefaultState());
             fakeSpawner.setWorld(mc.world);
             
-            // Вручную создаем NBT (данные) для крипера
             NbtCompound nbt = new NbtCompound();
-            nbt.putString("id", "minecraft:creeper"); // ID сущности
+            nbt.putString("id", "minecraft:creeper");
             
-            // Записываем данные в спавнер
+            // Используем прямой доступ к логике спавнера для установки крипера
             fakeSpawner.getLogic().setEntityId(EntityType.CREEPER, mc.world, mc.world.getRandom(), BlockPos.ORIGIN);
         }
 
