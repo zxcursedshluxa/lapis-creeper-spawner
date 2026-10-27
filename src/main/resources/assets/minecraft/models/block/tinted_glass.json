@@ -1,21 +1,3 @@
 {
-  "parent": "block/block",
-  "textures": {
-    "particle": "block/spawner",
-    "spawner": "block/spawner"
-  },
-  "elements": [
-    {
-      "from":,
-      "to":,
-      "faces": {
-        "down":  { "texture": "#spawner", "uv": [0, 0, 16, 16] },
-        "up":    { "texture": "#spawner", "uv": [0, 0, 16, 16] },
-        "north": { "texture": "#spawner", "uv": [0, 0, 16, 16] },
-        "south": { "texture": "#spawner", "uv": [0, 0, 16, 16] },
-        "west":  { "texture": "#spawner", "uv": [0, 0, 16, 16] },
-        "east":  { "texture": "#spawner", "uv": [0, 0, 16, 16] }
-      }
-    }
-  ]
+  "parent": "minecraft:block/spawner"
 }
