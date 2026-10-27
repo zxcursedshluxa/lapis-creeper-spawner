@@ -6,6 +6,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderDispatcher;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.EntityType;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
 
 public final class CreeperInBlockRenderer {
@@ -19,6 +21,13 @@ public final class CreeperInBlockRenderer {
         if (fakeSpawner == null) {
             fakeSpawner = new MobSpawnerBlockEntity(BlockPos.ORIGIN, Blocks.SPAWNER.getDefaultState());
             fakeSpawner.setWorld(mc.world);
+            
+            // Вручную создаем NBT (данные) для крипера
+            NbtCompound nbt = new NbtCompound();
+            nbt.putString("id", "minecraft:creeper"); // ID сущности
+            
+            // Записываем данные в спавнер
+            fakeSpawner.getLogic().setEntityId(EntityType.CREEPER, mc.world, mc.world.getRandom(), BlockPos.ORIGIN);
         }
 
         BlockEntityRenderDispatcher dispatcher = mc.getBlockEntityRenderDispatcher();
