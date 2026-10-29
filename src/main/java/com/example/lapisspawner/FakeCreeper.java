@@ -3,8 +3,10 @@ package com.example.lapisspawner;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.mob.CreeperEntity;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 public class FakeCreeper extends CreeperEntity {
@@ -13,35 +15,52 @@ public class FakeCreeper extends CreeperEntity {
     public FakeCreeper(EntityType<? extends CreeperEntity> entityType, World world) {
         super(entityType, world);
         this.setInvulnerable(true);
-        
-        // В 1.21.4 метод для заряда называется setCharged
-        this.setCharged(true); 
+        this.setNoGravity(false);
+        this.setCharged(true); // Заряженный (синий)
     }
 
     @Override
     public void tick() {
-        super.tick();
+        super.baseTick(); // Только базовое обновление позиции и анимации
+        
         if (this.getWorld().isClient) {
-            lifeTimer++;
+            this.lifeTimer++;
             MinecraftClient mc = MinecraftClient.getInstance();
             
             if (mc.player != null) {
-                // Крипер бежит к игроку
-                this.getNavigation().startMovingTo(mc.player, 1.2);
+                this.lookAtEntity(mc.player, 30.0F, 30.0F);
                 
-                // Если крипер подошел близко (меньше 2 блоков) — взрываемся
+                Vec3d targetPos = mc.player.getPos();
+                Vec3d currentPos = this.getPos();
+                Vec3d direction = targetPos.subtract(currentPos).normalize();
+                
+                double speed = 0.25;
+                this.setVelocity(direction.x * speed, this.getVelocity().y, direction.z * speed);
+                this.move(net.minecraft.entity.MovementType.SELF, this.getVelocity());
+
                 if (this.squaredDistanceTo(mc.player) < 4.0) {
-                    // Исправленный вызов звука (передаем SoundEvents.ENTITY_GENERIC_EXPLODE напрямую)
-                    this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(),
-                        SoundEvents.ENTITY_GENERIC_EXPLODE, SoundCategory.HOSTILE, 2.0f, 1.0f);
-                    this.discard(); // Исчезает
+                    explodeEffect();
+                    this.discard();
+                    return;
                 }
             }
-            
-            // Если крипер прожил больше 10 секунд (200 тиков) — исчезает
-            if (lifeTimer > 200) {
+
+            if (this.lifeTimer > 200) {
                 this.discard();
             }
+        }
+    }
+
+    private void explodeEffect() {
+        this.getWorld().playSound(null, this.getX(), this.getY(), this.getZ(),
+                SoundEvents.ENTITY_GENERIC_EXPLODE, SoundCategory.HOSTILE, 2.0f, 1.0f);
+        
+        for (int i = 0; i < 20; i++) {
+            this.getWorld().addParticle(ParticleTypes.EXPLOSION, 
+                    this.getX() + (this.random.nextDouble() - 0.5), 
+                    this.getY() + this.random.nextDouble() * 2.0, 
+                    this.getZ() + (this.random.nextDouble() - 0.5), 
+                    0, 0, 0);
         }
     }
 }
