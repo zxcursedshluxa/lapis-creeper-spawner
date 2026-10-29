@@ -12,8 +12,8 @@ public class FakeCreeper extends CreeperEntity {
 
     public FakeCreeper(EntityType<? extends CreeperEntity> entityType, World world) {
         super(entityType, world);
-        this.setInvulnerable(true);
-        this.setPowered(true); // Делаем его заряженным (синим)
+        this.setInvulnerable(true); // Неуязвимый
+        this.setPowered(true); // Заряженный (синий)
     }
 
     @Override
@@ -24,10 +24,10 @@ public class FakeCreeper extends CreeperEntity {
             MinecraftClient mc = MinecraftClient.getInstance();
             
             if (mc.player != null) {
-                // Крипер бежит к игроку (если навигация работает)
+                // Крипер бежит к игроку
                 this.getNavigation().startMovingTo(mc.player, 1.2);
                 
-                // Если крипер подошел близко (меньше 2 блоков) — взрываем
+                // Если крипер подошел близко (меньше 2 блоков) — взрываемся
                 if (this.squaredDistanceTo(mc.player) < 4.0) {
                     this.getWorld().playSound(this.getX(), this.getY(), this.getZ(),
                         SoundEvents.ENTITY_GENERIC_EXPLODE, SoundCategory.HOSTILE, 2.0f, 1.0f, false);
@@ -35,7 +35,7 @@ public class FakeCreeper extends CreeperEntity {
                 }
             }
             
-            // Если крипер прожил больше 10 секунд (200 тиков) — он исчезает
+            // Если крипер прожил больше 10 секунд (200 тиков) — исчезает
             if (lifeTimer > 200) {
                 this.discard();
             }
