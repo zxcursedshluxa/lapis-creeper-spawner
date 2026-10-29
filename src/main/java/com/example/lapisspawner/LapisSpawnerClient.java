@@ -30,14 +30,22 @@ public class LapisSpawnerClient implements ClientModInitializer {
                 int radius = 15;
                 BlockPos spawnerPos = null;
 
-                // Ищем первый попавшийся блок тонированного стекла
+                // Ищем блок, но теперь проверяем расстояние от игрока до блока!
                 for (int x = -radius; x <= radius; x++) {
                     for (int y = -radius; y <= radius; y++) {
                         for (int z = -radius; z <= radius; z++) {
                             BlockPos checkPos = playerPos.add(x, y, z);
                             if (client.world.getBlockState(checkPos).isOf(Blocks.TINTED_GLASS)) {
-                                spawnerPos = checkPos;
-                                break;
+                                // Проверяем расстояние от игрока до блока (не больше 15 блоков)
+                                double distance = client.player.getPos().distanceTo(
+                                    new net.minecraft.util.math.Vec3d(checkPos.getX() + 0.5, checkPos.getY() + 0.5, checkPos.getZ() + 0.5)
+                                );
+                                
+                                // Если расстояние меньше 15 блоков — берем этот блок
+                                if (distance <= 15.0) {
+                                    spawnerPos = checkPos;
+                                    break;
+                                }
                             }
                         }
                         if (spawnerPos != null) break;
@@ -45,7 +53,7 @@ public class LapisSpawnerClient implements ClientModInitializer {
                     if (spawnerPos != null) break;
                 }
 
-                // Если нашли блок — спавним 3 криперов вокруг него
+                // Если нашли блок в радиусе 15 блоков — спавним 3 криперов вокруг него
                 if (spawnerPos != null) {
                     // 1. Крипер слева (Север / -Z)
                     spawnCreeper(client, spawnerPos.getX() + 2.5, spawnerPos.getY() + 1.0, spawnerPos.getZ() - 2.5);
@@ -56,7 +64,7 @@ public class LapisSpawnerClient implements ClientModInitializer {
                     // 3. Крипер сзади (Запад / -X)
                     spawnCreeper(client, spawnerPos.getX() - 2.5, spawnerPos.getY() + 1.0, spawnerPos.getZ() - 2.5);
                     
-                    // Воспроизводим звук спавна для каждого (или один общий)
+                    // Звук спавна
                     client.world.playSound(client.player, spawnerPos, SoundEvents.ENTITY_CREEPER_PRIMED, SoundCategory.HOSTILE, 1.0f, 1.0f);
                 }
             }
