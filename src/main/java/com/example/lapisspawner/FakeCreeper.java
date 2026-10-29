@@ -10,23 +10,32 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.Vec3d;
 
 import java.lang.reflect.Field;
+import java.util.Random;
 
 public class FakeCreeper {
     private final CreeperEntity creeper;
     private final ClientWorld world;
     private int fuseTimer = 0;
-    private static final int MAX_FUSE = 30; // 1.5 секунды до взрыва при сближении
+    private static final int MAX_FUSE = 30;
     private boolean isDead = false;
+    
+    private int hurtTime = 0;
+    private double lastY;
+    private boolean wasOnGround = true;
+
+    // Переменные для случайного блуждания ("ходят когда хотят")
+    private final Random random = new Random();
+    private Vec3d wanderTarget = null;
+    private int wanderTimer = 0;
 
     public FakeCreeper(ClientWorld world, Vec3d spawnPos) {
         this.world = world;
         this.creeper = new CreeperEntity(EntityType.CREEPER, world);
-        this.creeper.setPosition(spawnPos.x, spawnPos.y, spawnPos.z);
         
-        // Делаем крипера заряженным (синим) через рефлексию данных
+        this.creeper.setPosition(spawnPos.x, spawnPos.y + 0.5, spawnPos.z);
+        this.lastY = creeper.getY();
+        
         makeCharged(this.creeper);
-
-        // Добавляем сущность в клиентский мир
         world.addEntity(this.creeper);
     }
 
@@ -38,7 +47,6 @@ public class FakeCreeper {
                     Object obj = field.get(null);
                     if (obj instanceof TrackedData) {
                         try {
-                            // Взводим булевы флаги (включая заряженность)
                             targetCreeper.getDataTracker().set((TrackedData<Boolean>) obj, true);
                         } catch (Exception ignored) {}
                     }
@@ -55,18 +63,73 @@ public class FakeCreeper {
             return;
         }
 
-        // Движение к игроку (setVelocity + move)
-        Vec3d pos = creeper.getPos();
-        Vec3d direction = targetPos.subtract(pos);
-        double distanceSq = direction.horizontalLengthSquared();
+        if (hurtTime > 0) {
+            hurtTime--;
+        }
+        creeper.hurtTime = hurtTime;
 
-        if (distanceSq > 0.1) {
-            direction = direction.normalize().multiply(0.08); // Скорость бега
+        // Ванильный тик клиента (гравитация, анимации ног)
+        creeper.baseTick();
+
+        // Физика воды (плавание)
+        if (creeper.isTouchingWater()) {
+            Vec3d vel = creeper.getVelocity();
+            creeper.setVelocity(vel.x, Math.max(vel.y, 0.06), vel.z);
+            creeper.setJumping(true);
+        } else {
+            creeper.setJumping(false);
+        }
+
+        // Урон от падения
+        if (!wasOnGround && creeper.isOnGround()) {
+            double fallDistance = lastY - creeper.getY();
+            if (fallDistance > 3.0) {
+                triggerHurtVisual();
+                world.playSound(creeper.getX(), creeper.getY(), creeper.getZ(), 
+                    SoundEvents.ENTITY_GENERIC_SMALL_FALL, SoundCategory.HOSTILE, 0.7F, 1.0F, false);
+            }
+        }
+        wasOnGround = creeper.isOnGround();
+        if (creeper.isOnGround()) {
+            lastY = creeper.getY();
+        }
+
+        // --- ЛОГИКА ДВИЖЕНИЯ: БЛУЖДАНИЕ ИЛИ ПРЕСЛЕДОВАНИЕ ---
+        Vec3d pos = creeper.getPos();
+        double distanceToPlayerSq = pos.squaredDistanceTo(targetPos);
+
+        Vec3d moveTarget;
+        double speed;
+
+        // Если игрок ближе 10 блоков — крипер агрессивно бежит за ним
+        if (distanceToPlayerSq < 100.0) {
+            moveTarget = targetPos;
+            speed = creeper.isTouchingWater() ? 0.05 : 0.09;
+        } else {
+            // Если игрок далеко — крипер "ходит когда хочет" (случайное блуждание)
+            if (wanderTarget == null || wanderTimer <= 0 || pos.squaredDistanceTo(wanderTarget) < 2.0) {
+                // Выбираем новую случайную точку в радиусе 4 блоков
+                double rx = (random.nextDouble() - 0.5) * 8.0;
+                double rz = (random.nextDouble() - 0.5) * 8.0;
+                wanderTarget = new Vec3d(pos.x + rx, pos.y, pos.z + rz);
+                wanderTimer = 80 + random.nextInt(100); // Идет к ней от 4 до 9 секунд, потом думает
+            }
+            wanderTimer--;
+            moveTarget = wanderTarget;
+            speed = 0.04; // Медленная скорость вальяжной ходьбы
+        }
+
+        // Движение к выбранной цели (игроку или случайной точке)
+        Vec3d direction = moveTarget.subtract(pos);
+        double horizontalDistSq = direction.horizontalLengthSquared();
+
+        if (horizontalDistSq > 0.1) {
+            direction = direction.normalize().multiply(speed);
             creeper.setVelocity(direction.x, creeper.getVelocity().y, direction.z);
             
-            // Поворот лица крипера к игроку
-            double dx = targetPos.x - pos.x;
-            double dz = targetPos.z - pos.z;
+            // Поворот лица
+            double dx = moveTarget.x - pos.x;
+            double dz = moveTarget.z - pos.z;
             float yaw = (float) (Math.atan2(dz, dx) * (180 / Math.PI)) - 90.0F;
             creeper.setYaw(yaw);
             creeper.headYaw = yaw;
@@ -74,9 +137,12 @@ public class FakeCreeper {
 
         creeper.move(net.minecraft.entity.MovementType.SELF, creeper.getVelocity());
 
-        // Проверка дистанции для взрыва (радиус <= 2.5 блока)
-        if (distanceSq <= 6.25) {
+        // Логика взрыва при сближении с игроком
+        if (distanceToPlayerSq <= 6.25) {
             fuseTimer++;
+            if (fuseTimer % 10 == 0) {
+                triggerHurtVisual();
+            }
             if (fuseTimer >= MAX_FUSE) {
                 explode();
             }
@@ -85,21 +151,26 @@ public class FakeCreeper {
         }
     }
 
+    public void triggerHurtVisual() {
+        this.hurtTime = 10;
+        creeper.hurtTime = 10;
+        world.playSound(creeper.getX(), creeper.getY(), creeper.getZ(), 
+            SoundEvents.ENTITY_CREEPER_HURT, SoundCategory.HOSTILE, 0.5F, 1.0F, false);
+    }
+
     private void explode() {
         if (isDead) return;
         isDead = true;
 
         Vec3d pos = creeper.getPos();
-
-        // Звуки и частицы взрыва
         world.playSound(pos.x, pos.y, pos.z, SoundEvents.ENTITY_CREEPER_PRIMED, SoundCategory.HOSTILE, 1.0F, 0.5F, false);
         world.playSound(pos.x, pos.y, pos.z, SoundEvents.ENTITY_GENERIC_EXPLODE.value(), SoundCategory.BLOCKS, 1.0F, 1.0F, false);
 
         for (int i = 0; i < 40; i++) {
             double ox = (world.random.nextDouble() - 0.5) * 2.0;
-            double oy = world.random.nextDouble() * 2.0;
+            double oy = (world.random.nextDouble() - 0.5) * 2.0;
             double oz = (world.random.nextDouble() - 0.5) * 2.0;
-            world.addParticle(ParticleTypes.EXPLOSION, pos.x + ox, pos.y + oy, pos.z + oz, 0.0, 0.0, 0.0);
+            world.addParticle(ParticleTypes.EXPLOSION, pos.x + ox, pos.y + oy + 1.0, pos.z + oz, 0.0, 0.0, 0.0);
             world.addParticle(ParticleTypes.FLASH, pos.x, pos.y + 1.0, pos.z, 0.0, 0.0, 0.0);
         }
 
