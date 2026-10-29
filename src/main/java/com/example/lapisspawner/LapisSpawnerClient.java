@@ -12,54 +12,60 @@ import java.util.List;
 
 public class LapisSpawnerClient implements ClientModInitializer {
 
-    // Пример координат твоего блока-спавнера (замени на реальные координаты или список твоих блоков)
-    private static final BlockPos SPAWNER_POS = new BlockPos(0, 64, 0); // <--- Укажи координаты своего блока тонированного стекла
+    // Укажи здесь координаты твоего блока тонированного стекла
+    private static final BlockPos SPAWNER_POS = new BlockPos(0, 64, 0); 
+    private static final int SPAWN_INTERVAL_TICKS = 200; // 10 секунд (20 тиков * 10)
+    private static final double SPAWN_RADIUS_SQ = 15.0 * 15.0; // 15 блоков радиус
+    private static final double DESPAWN_DISTANCE_SQ = 64.0 * 64.0;
 
     private int timer = 0;
     private final List<FakeCreeper> activeCreepers = new ArrayList<>();
 
     @Override
-    onInitializeClient() { // Важно: в Fabric это onInitializeClient()
+    public void onInitializeClient() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.world == null || client.player == null) return;
+            if (client.player == null || client.world == null) return;
 
-            // 1. Проверяем расстояние от игрока до блока (15 блоков радиус)
+            // 1. Проверяем расстояние от игрока до спавнера (15 блоков)
             double distanceSq = client.player.squaredDistanceTo(
                 SPAWNER_POS.getX() + 0.5,
                 SPAWNER_POS.getY() + 0.5,
                 SPAWNER_POS.getZ() + 0.5
             );
 
-            // Если игрок в радиусе 15 блоков (15 * 15 = 225)
-            if (distanceSq <= 225.0) {
+            if (distanceSq <= SPAWN_RADIUS_SQ) {
                 timer++;
-                // Каждые 10 секунд (20 тиков * 10 = 200 тиков)
-                if (timer >= 200) {
+                if (timer >= SPAWN_INTERVAL_TICKS) {
                     timer = 0;
                     spawnCreepersAround(client);
                 }
             } else {
-                // Если игрок отошел на 16+ блоков (16 * 16 = 256) — можно сбрасывать таймер или останавливать
-                if (distanceSq > 256.0) {
-                    timer = 0;
-                }
+                // Если игрок отошел далеко, сбрасываем таймер
+                if (timer > 0) timer--;
             }
 
-            // 2. Обновляем всех активных фейковых криперов каждый тик
+            // 2. Обновляем криперов каждый тик и удаляем тех, кто далеко или взорвался
             Vec3d playerPos = client.player.getPos();
             Iterator<FakeCreeper> iterator = activeCreepers.iterator();
             while (iterator.hasNext()) {
-                FakeCreeper fakeCreeper = iterator.next();
-                if (fakeCreeper.isDead()) {
+                FakeCreeper creeper = iterator.next();
+                if (creeper.isDead()) {
                     iterator.remove();
-                } else {
-                    fakeCreeper.tick(playerPos);
+                    continue;
+                }
+
+                creeper.tick(playerPos);
+
+                // Если крипер отлетел слишком далеко от игрока — удаляем
+                if (creeper.getPos().squaredDistanceTo(playerPos) > DESPAWN_DISTANCE_SQ) {
+                    creeper.remove();
+                    iterator.remove();
                 }
             }
         });
     }
 
-    private void processSpawnCreepersAround(MinecraftClient client) {
+    private void spawnCreepersAround(MinecraftClient client) {
         if (client.world == null || client.player == null) return;
 
         Vec3d blockCenter = new Vec3d(
@@ -68,20 +74,17 @@ public class LapisSpawnerClient implements ClientModInitializer {
             SPAWNER_POS.getZ() + 0.5
         );
 
-        // Получаем направление взгляда игрока, чтобы корректно спавнить слева, справа и сзади
+        // Определяем стороны на основе взгляда игрока
         Vec3d rotationVector = client.player.getRotationVector();
         Vec3d forward = new Vec3d(rotationVector.x, 0, rotationVector.z).normalize();
-        Vec3d right = new Vec3d(-forward.z, 0, forward.x); // Справа
+        Vec3d right = new Vec3d(-forward.z, 0, forward.x);
 
-        // Позиции для 3 криперов относительно блока или игрока:
-        // 1. Слева (-right)
-        // 2. Справа (+right)
-        // 3. Сзади (-forward)
+        // Позиции: слева, справа, сзади от блока
         Vec3d posLeft = blockCenter.add(right.multiply(-2.0));
         Vec3d posRight = blockCenter.add(right.multiply(2.0));
         Vec3d posBack = blockCenter.add(forward.multiply(-2.0));
 
-        // Спавним трех фейковых заряженных криперов
+        // Добавляем их в список активных
         activeCreepers.add(new FakeCreeper(client.world, posLeft));
         activeCreepers.add(new FakeCreeper(client.world, posRight));
         activeCreepers.add(new FakeCreeper(client.world, posBack));
